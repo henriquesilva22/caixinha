@@ -40,32 +40,14 @@ export async function GET(request: NextRequest) {
       .select({
         totalProducts: sql<number>`count(distinct ${products.id})`,
         totalStock: sql<number>`sum(${products.qtdAtual})`,
-        totalSales: sql<number>`sum(case when ${movements.tipo} = 'saida' then ${movements.quantidade} else 0 end)`,
-        totalRevenue: sql<number>`sum(case when ${movements.tipo} = 'saida' then ${movements.quantidade} * cast(${movements.precoUnitario} as decimal) else 0 end)`,
       })
       .from(products)
       .leftJoin(movements, eq(products.id, movements.produtoId))
       .where(dateFilter);
 
-    // Produtos mais vendidos
-    const topProducts = await db
-      .select({
-        productName: products.name,
-        productCode: products.codigoInterno,
-        totalSold: sql<number>`sum(${movements.quantidade})`,
-        totalRevenue: sql<number>`sum(${movements.quantidade} * cast(${movements.precoUnitario} as decimal))`,
-      })
-      .from(movements)
-      .innerJoin(products, eq(movements.produtoId, products.id))
-      .where(and(eq(movements.tipo, 'saida'), dateFilter))
-      .groupBy(products.id, products.name, products.codigoInterno)
-      .orderBy(desc(sql`sum(${movements.quantidade})`))
-      .limit(10);
-
     return NextResponse.json({
       movements: movementsData,
       stats: stats[0],
-      topProducts,
     });
   } catch (error) {
     console.error('Erro ao gerar dados do dashboard:', error);

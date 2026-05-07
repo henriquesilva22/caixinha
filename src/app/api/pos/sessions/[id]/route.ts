@@ -3,12 +3,19 @@ import { db } from '@/lib/db';
 import { posSessions, salesOrders } from '@/lib/schema';
 import { eq, desc } from 'drizzle-orm';
 
+const deprecatedResponse = () =>
+  NextResponse.json(
+    { error: 'Modulo de PDV removido. Endpoint indisponivel.' },
+    { status: 410 }
+  );
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 // GET - Obter detalhes de uma sessão
 export async function GET(request: NextRequest, { params }: RouteParams) {
+  return deprecatedResponse();
   try {
     const { id } = await params;
 
@@ -41,6 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 // PUT - Fechar caixa
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  return deprecatedResponse();
   try {
     const { id } = await params;
     const body = await request.json();

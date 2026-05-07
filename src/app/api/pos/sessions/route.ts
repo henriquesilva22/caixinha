@@ -3,8 +3,15 @@ import { db } from '@/lib/db';
 import { posSessions } from '@/lib/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
+const deprecatedResponse = () =>
+  NextResponse.json(
+    { error: 'Modulo de PDV removido. Endpoint indisponivel.' },
+    { status: 410 }
+  );
+
 // GET - Listar sessões de caixa ou obter sessão ativa
 export async function GET(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get('active') === 'true';
@@ -37,6 +44,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Abrir nova sessão de caixa
 export async function POST(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const body = await request.json();
     const { userId, openingBalance = 0, notes } = body;

@@ -5,8 +5,15 @@ import { eq, desc, asc, sql } from 'drizzle-orm';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 
+const deprecatedResponse = () =>
+  NextResponse.json(
+    { error: 'Modulo de vendas removido. Endpoint indisponivel.' },
+    { status: 410 }
+  );
+
 // GET - Listar pedidos de venda
 export async function GET(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -102,6 +109,7 @@ export async function GET(request: NextRequest) {
 
 // POST - Criar novo pedido de venda (PDV)
 export async function POST(request: NextRequest) {
+  return deprecatedResponse();
   try {
     // @ts-ignore - Tipos do next-auth conflitantes, funciona em runtime
     const session = await getServerSession(authOptions);
@@ -400,6 +408,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Cancelar/excluir pedido de venda
 export async function DELETE(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('id');
@@ -480,6 +489,7 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH - Atualizar status de pagamento (crediário)
 export async function PATCH(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get('id');

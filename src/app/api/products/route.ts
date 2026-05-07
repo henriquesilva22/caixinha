@@ -1,12 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../lib/db';
 import { products, productBatches } from '../../../lib/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // GET: Listar todos os produtos com lotes
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const productList = await db.select().from(products);
+    const params = request.nextUrl.searchParams;
+    const barcodeFilter = params.get('barcode');
+    const idFilter = params.get('id');
+    const nameFilter = params.get('name');
+
+    let productList = [];
+    if (barcodeFilter) {
+      productList = await db.select().from(products).where(eq(products.barcode, barcodeFilter));
+    } else if (idFilter) {
+      productList = await db.select().from(products).where(eq(products.id, idFilter));
+    } else if (nameFilter) {
+      // fallback simple name search
+      productList = await db.select().from(products).where(sql`${products.name} LIKE ${"%" + nameFilter + "%"}`);
+    } else {
+      productList = await db.select().from(products);
+    }
     const productsWithBatches = await Promise.all(
       productList.map(async (p) => {
         const batches = await db.select().from(productBatches).where(eq(productBatches.productId, p.id));
@@ -30,6 +45,8 @@ export async function GET() {
           id: p.id,
           internalCode: p.codigoInterno,
           barcode: p.barcode,
+          isPerishable: !!(p as any).isPerishable,
+          expiryDate: (p as any).expiryDate || null,
           name: p.name,
           description: p.description,
           salePrice: maxSellingPrice.toFixed(2), // Maior preço de venda dos lotes
@@ -56,6 +73,7 @@ export async function GET() {
           batches: batches.map(b => ({
             id: b.id,
             purchaseDate: b.purchaseDate || null, // Já vem como string YYYY-MM-DD
+            expiryDate: (b as any).expiryDate || null,
             costPrice: b.costPrice,
             sellingPrice: b.sellingPrice,
             quantityReceived: b.quantityReceived,
@@ -86,6 +104,9 @@ export async function POST(request: NextRequest) {
       costPrice, 
       currentQuantity, 
       lowStockThreshold,
+      // Perishable support
+      isPerishable,
+      expiryDate,
       observation, 
       checkOnly,
       // Campos de e-commerce
@@ -139,6 +160,7 @@ export async function POST(request: NextRequest) {
         id: crypto.randomUUID(),
         productId,
         purchaseDate: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        expiryDate: body.expiryDate || null,
         costPrice: costPrice,
         sellingPrice: salePrice,
         quantityReceived: currentQuantity || 0,
@@ -163,6 +185,8 @@ export async function POST(request: NextRequest) {
         id: productId,
         codigoInterno: internalCode,
         barcode: barcode || null,
+        isPerishable: isPerishable ? 1 : 0,
+        expiryDate: expiryDate || null,
         name,
         description: description || null,
         precoVenda: salePrice,
@@ -192,6 +216,7 @@ export async function POST(request: NextRequest) {
         id: crypto.randomUUID(),
         productId,
         purchaseDate: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+        expiryDate: expiryDate || null,
         costPrice: costPrice,
         sellingPrice: salePrice,
         quantityReceived: currentQuantity || 0,
@@ -213,6 +238,9 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { 
       id, internalCode, barcode, name, description, salePrice, costPrice, currentQuantity, lowStockThreshold,
+      // Perishable support
+      isPerishable,
+      expiryDate,
       // Campos de e-commerce
       sku, weight, length, width, height, categoryId, brandName, manufacturer,
       shortDescription, metaTitle, metaDescription, tags, warrantyMonths
@@ -237,6 +265,8 @@ export async function PUT(request: NextRequest) {
     const updates: Record<string, unknown> = {
       codigoInterno: internalCode,
       barcode: barcode || null,
+      isPerishable: isPerishable ? 1 : 0,
+      expiryDate: expiryDate || null,
       name,
       description: description || null,
       precoVenda: salePrice,

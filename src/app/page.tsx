@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { 
-  PieChart, Pie, Cell, 
   BarChart, Bar, 
   LineChart, Line, 
   AreaChart, Area,
@@ -43,21 +42,11 @@ interface MovementApiData {
 interface DashboardApiStats {
   totalProducts: number;
   totalStock: number;
-  totalSales: number;
-  totalRevenue: number;
-}
-
-interface TopProductApiData {
-  productName: string;
-  productCode: string;
-  totalSold: number;
-  totalRevenue: number;
 }
 
 interface DashboardApiResponse {
   movements: MovementApiData[];
   stats: DashboardApiStats;
-  topProducts: TopProductApiData[];
 }
 
 interface DashboardStats {
@@ -65,8 +54,6 @@ interface DashboardStats {
   totalStock: number;
   lowStockProducts: number;
   outOfStockProducts: number;
-  totalSales: number;
-  todaySales: number;
 }
 
 interface MovementData {
@@ -76,12 +63,6 @@ interface MovementData {
   total: number;
 }
 
-interface CategoryData {
-  name: string;
-  value: number;
-  color: string;
-  [key: string]: string | number;
-}
 
 interface TimelineMovement {
   date: string;
@@ -96,11 +77,8 @@ export default function Home() {
     totalStock: 0,
     lowStockProducts: 0,
     outOfStockProducts: 0,
-    totalSales: 0,
-    todaySales: 0
   });
   const [movementData, setMovementData] = useState<MovementData[]>([]);
-  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
   const [timelineMovements, setTimelineMovements] = useState<TimelineMovement[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
@@ -118,7 +96,7 @@ export default function Home() {
 
       // Buscar dados do dashboard
       const dashboardResponse = await fetch(`/api/dashboard?startDate=${startDate}&endDate=${endDate}`);
-      const dashboardData = dashboardResponse.ok ? (await dashboardResponse.json() as DashboardApiResponse) : { movements: [], stats: {} as DashboardApiStats, topProducts: [] };
+      const dashboardData = dashboardResponse.ok ? (await dashboardResponse.json() as DashboardApiResponse) : { movements: [], stats: {} as DashboardApiStats };
 
       // Calcular estatísticas
       const totalProducts = products.length;
@@ -126,18 +104,11 @@ export default function Home() {
       const lowStockProducts = products.filter((p: ProductForDashboardStats) => p.currentQuantity > 0 && p.currentQuantity <= (p.lowStockThreshold || 5)).length;
       const outOfStockProducts = products.filter((p: ProductForDashboardStats) => p.currentQuantity === 0).length;
 
-      // Calcular vendas
-      const today = format(new Date(), 'yyyy-MM-dd');
-      const todayMovements = dashboardData.movements?.filter((m: MovementApiData) => m.date === today && m.type === 'saida') || [];
-      const todaySales = todayMovements.reduce((sum: number, m: MovementApiData) => sum + (parseFloat(m.unitPrice) * m.quantity), 0);
-
       setStats({
         totalProducts,
         totalStock,
         lowStockProducts,
         outOfStockProducts,
-        totalSales: dashboardData.stats?.totalSales || 0,
-        todaySales
       });
 
       // Processar dados para gráficos
@@ -182,28 +153,6 @@ export default function Home() {
       .sort((a, b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime());
 
     setMovementData(movementChartData);
-
-    // Processar dados para gráfico de pizza
-    const categoryMap = new Map<string, number>();
-    movements.forEach(movement => {
-      if (movement.type === 'saida') {
-        const category = movement.productName?.substring(0, 20) || 'Outros';
-        const value = parseFloat(movement.unitPrice) * movement.quantity;
-        categoryMap.set(category, (categoryMap.get(category) || 0) + value);
-      }
-    });
-
-    const colors = ['#8884d8', '#82ca9d', '#ffc658', '#ff7300', '#00ff00', '#ff0000', '#0000ff', '#ffff00'];
-    const categoryChartData: CategoryData[] = Array.from(categoryMap.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([name, value], index) => ({
-        name,
-        value,
-        color: colors[index % colors.length]
-      }));
-
-    setCategoryData(categoryChartData);
 
     // Processar dados para gráficos de linha e área (relatórios)
     let saldo = 0;
@@ -296,24 +245,6 @@ export default function Home() {
               </Animated>
 
               <Animated animation="slide-up" delay={100}>
-                <Card className="bg-gradient-to-br from-emerald-400 to-emerald-500 border-none shadow-xl hover:shadow-2xl transition-all">
-                  <Card.Body>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-emerald-50 mb-1">Vendas Hoje</p>
-                        <p className="text-4xl font-bold text-white">
-                          R$ {Number(stats.todaySales || 0).toFixed(2)}
-                        </p>
-                      </div>
-                      <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
-                        <TrendingUpIcon className="w-8 h-8 text-white" />
-                      </div>
-                    </div>
-                  </Card.Body>
-                </Card>
-              </Animated>
-
-              <Animated animation="slide-up" delay={200}>
                 <Card className="bg-gradient-to-br from-orange-400 to-orange-500 border-none shadow-xl hover:shadow-2xl transition-all">
                   <Card.Body>
                     <div className="flex items-center justify-between">
@@ -329,7 +260,7 @@ export default function Home() {
                 </Card>
               </Animated>
 
-              <Animated animation="slide-up" delay={300}>
+              <Animated animation="slide-up" delay={200}>
                 <Card className="bg-gradient-to-br from-red-400 to-red-500 border-none shadow-xl hover:shadow-2xl transition-all">
                   <Card.Body>
                     <div className="flex items-center justify-between">
@@ -380,48 +311,9 @@ export default function Home() {
             </Animated>
 
             {/* Gráficos */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* Gráfico de Pizza */}
-              <Animated animation="scale" delay={500}>
-                <Card className="bg-level-1">
-                  <Card.Header>
-                    <h2 className="text-xl font-bold text-card-foreground">Vendas por Produto</h2>
-                  </Card.Header>
-                  <Card.Body>
-                    {categoryData.length > 0 ? (
-                      <ResponsiveContainer width="100%" height={350}>
-                        <PieChart>
-                          <Pie
-                            data={categoryData}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                            outerRadius={100}
-                            fill="#8884d8"
-                            dataKey="value"
-                          >
-                            {categoryData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
-                            ))}
-                          </Pie>
-                          <Tooltip 
-                            formatter={(value: number | undefined) => [`R$ ${(value || 0).toFixed(2)}`, 'Valor']} 
-                            contentStyle={{ backgroundColor: '#1f2937', border: 'none', borderRadius: '8px' }}
-                          />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex justify-center items-center h-64 text-gray-500 dark:text-gray-400">
-                        Nenhum dado disponível
-                      </div>
-                    )}
-                  </Card.Body>
-                </Card>
-              </Animated>
-
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
               {/* Gráfico de Barras */}
-              <Animated animation="scale" delay={600}>
+              <Animated animation="scale" delay={500}>
                 <Card className="bg-level-1">
                   <Card.Header>
                     <h2 className="text-xl font-bold text-card-foreground">Entradas vs Saídas</h2>
@@ -463,11 +355,6 @@ export default function Home() {
                     <Link href="/estoque">
                       <button className="w-full px-6 py-3 text-white font-semibold rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95">
                         📦 Gerenciar Estoque
-                      </button>
-                    </Link>
-                    <Link href="/vendas">
-                      <button className="w-full px-6 py-3 text-white font-semibold rounded-lg bg-gradient-to-r from-emerald-400 to-emerald-500 hover:from-emerald-500 hover:to-emerald-600 shadow-lg hover:shadow-xl transition-all duration-200 active:scale-95">
-                        💰 Registrar Venda
                       </button>
                     </Link>
                   </div>

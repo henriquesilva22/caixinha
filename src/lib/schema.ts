@@ -239,6 +239,7 @@ export const productBatches = mysqlTable("product_batches", {
 	productId: varchar("product_id", { length: 36 }).notNull(),
 	// you can use { mode: 'date' }, if you want to have Date as type for this column
 	purchaseDate: date("purchase_date", { mode: 'string' }).notNull(),
+	expiryDate: date("expiry_date", { mode: 'string' }),
 	costPrice: decimal("cost_price", { precision: 10, scale: 2 }).notNull(),
 	sellingPrice: decimal("selling_price", { precision: 10, scale: 2 }).notNull(),
 	quantityReceived: int("quantity_received").notNull(),
@@ -337,6 +338,9 @@ export const products = mysqlTable("products", {
 	sellByUnit: tinyint("sell_by_unit").default(0),
 	unitPrice: decimal("unit_price", { precision: 10, scale: 2 }),
 	qtdUnitsAvailable: int("qtd_units_available").default(0),
+	// Perishable support
+	isPerishable: tinyint("is_perishable").default(0),
+	expiryDate: date("expiry_date", { mode: 'string' }),
 },
 (table) => [
 	primaryKey({ columns: [table.id], name: "products_id"}),

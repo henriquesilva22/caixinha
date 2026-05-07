@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect, useRef } from 'react';
-import { PackageIcon, ChartBarIcon, DocumentReportIcon, ShoppingCartIcon, UsersIcon, TruckIcon, CashRegisterIcon, FolderIcon, WarehouseIcon, BankIcon, CurrencyIcon, CogIcon, TagIcon, ClipboardListIcon } from './Icons/index';
+import { PackageIcon, ChartBarIcon, DocumentReportIcon, UsersIcon, TruckIcon, FolderIcon, WarehouseIcon, BankIcon, CurrencyIcon, CogIcon, TagIcon } from './Icons/index';
 import { NotificationPanel } from './NotificationPanel/index';
 import { ThemeToggle } from './ThemeToggle';
 
@@ -23,20 +23,10 @@ interface NavCategory {
 // Itens principais que aparecem diretamente no header
 const quickNavItems: NavItem[] = [
   { href: '/', label: 'Dashboard', icon: <ChartBarIcon className="w-5 h-5" /> },
-  { href: '/caixa', label: 'PDV', icon: <CashRegisterIcon className="w-5 h-5" /> },
 ];
 
 // Categorias com dropdowns
 const navCategories: NavCategory[] = [
-  {
-    label: 'Vendas',
-    icon: <ShoppingCartIcon className="w-5 h-5" />,
-    items: [
-      { href: '/vendas', label: 'Nova Venda', icon: <ShoppingCartIcon className="w-4 h-4" /> },
-      { href: '/gerenciar-vendas', label: 'Gerenciar Vendas', icon: <ClipboardListIcon className="w-4 h-4" /> },
-      { href: '/ordens-servico', label: 'Ordens de Serviço', icon: <CogIcon className="w-4 h-4" /> },
-    ]
-  },
   {
     label: 'Gestão',
     icon: <PackageIcon className="w-5 h-5" />,

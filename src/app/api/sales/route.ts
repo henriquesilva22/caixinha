@@ -6,8 +6,15 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../../../lib/auth';
 import { randomUUID } from 'crypto';
 
+const deprecatedResponse = () =>
+  NextResponse.json(
+    { error: 'Modulo de vendas removido. Endpoint indisponivel.' },
+    { status: 410 }
+  );
+
 // GET - Listar vendas
 export async function GET(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
@@ -108,6 +115,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  return deprecatedResponse();
   try {
     // @ts-ignore - Tipos do next-auth conflitantes, funciona em runtime
     const session = await getServerSession(authOptions);
@@ -194,6 +202,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Cancelar/excluir venda simples
 export async function DELETE(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const saleId = searchParams.get('id');
@@ -260,6 +269,7 @@ export async function DELETE(request: NextRequest) {
 
 // PATCH - Atualizar status de crédito da venda
 export async function PATCH(request: NextRequest) {
+  return deprecatedResponse();
   try {
     const { searchParams } = new URL(request.url);
     const saleId = searchParams.get('id');
