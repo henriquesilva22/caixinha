@@ -11,6 +11,7 @@ interface Product {
   name: string;
   salePrice: string;
   costPrice: string;
+  expiryDate?: string | null;
   currentQuantity: number;
 }
 
@@ -161,17 +162,14 @@ export default function EtiquetasPage() {
     spacingY: 0,
   });
   const [labelItems, setLabelItems] = useState<LabelItem[]>([]);
-  const [showPrice, setShowPrice] = useState(true);
   const [showBarcode, setShowBarcode] = useState(true);
   const [showCode, setShowCode] = useState(true);
   const [boldName, setBoldName] = useState(true);
   const [boldCode, setBoldCode] = useState(false);
   const [boldBarcode, setBoldBarcode] = useState(false);
-  const [boldPrice, setBoldPrice] = useState(true);
   const [fontSizeName, setFontSizeName] = useState(9);
   const [fontSizeCode, setFontSizeCode] = useState(8);
   const [fontSizeBarcode, setFontSizeBarcode] = useState(7);
-  const [fontSizePrice, setFontSizePrice] = useState(11);
   const [isLoading, setIsLoading] = useState(true);
   const [previewMode, setPreviewMode] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
@@ -326,9 +324,11 @@ export default function EtiquetasPage() {
     return labels;
   };
 
-  const formatCurrency = (value: string | number) => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+  const formatExpiryDate = (value?: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleDateString('pt-BR');
   };
 
   const generateBarcode = (code: string): string => {
@@ -375,6 +375,7 @@ export default function EtiquetasPage() {
           ${pageLabels.map((product, idx) => {
             const barcodeValue = product.barcode || product.internalCode;
             const barcodeImg = showBarcode ? generateBarcode(barcodeValue) : '';
+            const expiryLabel = formatExpiryDate(product.expiryDate);
             
             return `
               <div class="label">
@@ -384,7 +385,7 @@ export default function EtiquetasPage() {
                 ${showCode ? `<div class="label-code">${product.internalCode}</div>` : ''}
                 ${showBarcode && barcodeImg ? `<img class="label-barcode" src="${barcodeImg}" />` : ''}
                 ${showBarcode ? `<div class="label-barcode-text">${barcodeValue}</div>` : ''}
-                ${showPrice ? `<div class="label-price">${formatCurrency(product.salePrice)}</div>` : ''}
+                ${expiryLabel ? `<div class="label-expiry">Validade: ${expiryLabel}</div>` : ''}
               </div>
             `;
           }).join('')}
@@ -524,11 +525,11 @@ export default function EtiquetasPage() {
               flex-shrink: 0;
             }
             
-            .label-price {
-              font-weight: ${boldPrice ? 'bold' : 'normal'} !important;
-              font-size: ${fontSizePrice}pt !important;
+            .label-expiry {
+              font-weight: normal !important;
+              font-size: 7pt !important;
               margin-top: 1mm;
-              color: ${boldPrice ? '#000' : '#000'};
+              color: #000;
               flex-shrink: 0;
             }
             
@@ -761,15 +762,6 @@ export default function EtiquetasPage() {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={showPrice}
-                    onChange={(e) => setShowPrice(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Exibir preço</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
                     checked={showCode}
                     onChange={(e) => setShowCode(e.target.checked)}
                     className="rounded"
@@ -807,15 +799,6 @@ export default function EtiquetasPage() {
                     className="rounded"
                   />
                   <span className="text-sm">Texto do código de barras</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={boldPrice}
-                    onChange={(e) => setBoldPrice(e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">Preço</span>
                 </label>
               </div>
 
@@ -856,18 +839,6 @@ export default function EtiquetasPage() {
                       step="0.5"
                       value={fontSizeBarcode}
                       onChange={(e) => setFontSizeBarcode(parseFloat(e.target.value) || 7)}
-                      className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-muted-foreground mb-1">Preço</label>
-                    <input
-                      type="number"
-                      min="6"
-                      max="20"
-                      step="0.5"
-                      value={fontSizePrice}
-                      onChange={(e) => setFontSizePrice(parseFloat(e.target.value) || 11)}
                       className="w-full px-2 py-1 bg-background border border-border rounded text-sm text-foreground"
                     />
                   </div>
@@ -926,9 +897,6 @@ export default function EtiquetasPage() {
                               <div className="text-xs text-muted-foreground truncate">
                                 Cód: {product.internalCode}
                                 {product.barcode && ` | Barras: ${product.barcode}`}
-                              </div>
-                              <div className="text-sm font-semibold text-green-600">
-                                {formatCurrency(product.salePrice)}
                               </div>
                             </div>
                             <button
@@ -1089,6 +1057,7 @@ export default function EtiquetasPage() {
                       .slice(0, getTemplate().cols * getTemplate().rows)
                       .map((product, idx) => {
                         const barcodeValue = product.barcode || product.internalCode;
+                        const expiryLabel = formatExpiryDate(product.expiryDate);
                         return (
                           <div
                             key={`${product.id}-${idx}`}
@@ -1140,9 +1109,9 @@ export default function EtiquetasPage() {
                                 </div>
                               </>
                             )}
-                            {showPrice && (
-                              <div className={`${boldPrice ? 'font-bold' : ''}`} style={{ fontSize: `${fontSizePrice}pt`, marginTop: '1mm', flexShrink: 0 }}>
-                                {formatCurrency(product.salePrice)}
+                            {expiryLabel && (
+                              <div style={{ fontSize: '7pt', marginTop: '1mm', flexShrink: 0 }}>
+                                Validade: {expiryLabel}
                               </div>
                             )}
                           </div>

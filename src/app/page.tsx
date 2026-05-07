@@ -70,6 +70,10 @@ interface ProductForDashboardStats {
   currentQuantity: number;
   lowStockThreshold: number;
   categoryName?: string | null;
+  batches: Array<{
+    expiryDate?: string | null;
+    quantityRemaining: number;
+  }>;
 }
 
 interface DashboardStats {
@@ -80,6 +84,8 @@ interface DashboardStats {
   foodProducts: number;
   foodLowStockProducts: number;
   foodStock: number;
+  expiringSoon: number;
+  expired: number;
 }
 
 interface FoodStockData {
@@ -97,6 +103,8 @@ export default function Home() {
     foodProducts: 0,
     foodLowStockProducts: 0,
     foodStock: 0,
+    expiringSoon: 0,
+    expired: 0,
   });
   const [foodStockData, setFoodStockData] = useState<FoodStockData[]>([]);
   const [foodLowStockData, setFoodLowStockData] = useState<FoodStockData[]>([]);
@@ -117,6 +125,25 @@ export default function Home() {
       const foodProducts = products.filter(isFoodProduct);
       const foodStock = foodProducts.reduce((sum: number, p: ProductForDashboardStats) => sum + p.currentQuantity, 0);
       const foodLowStockProducts = foodProducts.filter((p: ProductForDashboardStats) => p.currentQuantity > 0 && p.currentQuantity <= (p.lowStockThreshold || 5)).length;
+      const today = new Date();
+      const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const expiringSoon = products.filter((product) =>
+        product.batches.some((batch) => {
+          if (!batch.expiryDate || batch.quantityRemaining <= 0) return false;
+          const expiry = new Date(batch.expiryDate);
+          if (Number.isNaN(expiry.getTime())) return false;
+          const diffDays = Math.ceil((expiry.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+          return diffDays >= 0 && diffDays <= 20;
+        })
+      ).length;
+      const expired = products.filter((product) =>
+        product.batches.some((batch) => {
+          if (!batch.expiryDate || batch.quantityRemaining <= 0) return false;
+          const expiry = new Date(batch.expiryDate);
+          if (Number.isNaN(expiry.getTime())) return false;
+          return expiry.getTime() < startOfToday.getTime();
+        })
+      ).length;
 
       const topFoodProducts = [...foodProducts]
         .sort((a, b) => b.currentQuantity - a.currentQuantity)
@@ -135,6 +162,8 @@ export default function Home() {
         foodProducts: foodProducts.length,
         foodLowStockProducts,
         foodStock,
+        expiringSoon,
+        expired,
       });
 
       setFoodStockData(topFoodProducts.map((product) => ({
@@ -264,6 +293,36 @@ export default function Home() {
                   </Card.Body>
                 </Card>
               </Animated>
+              <Animated animation="slide-up" delay={300}>
+                <Card className="bg-gradient-to-br from-amber-400 to-amber-500 border-none shadow-xl hover:shadow-2xl transition-all">
+                  <Card.Body>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-amber-50 mb-1">Vencendo (20 dias)</p>
+                        <p className="text-4xl font-bold text-white">{stats.expiringSoon}</p>
+                      </div>
+                      <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <DocumentReportIcon className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Animated>
+              <Animated animation="slide-up" delay={400}>
+                <Card className="bg-gradient-to-br from-rose-500 to-rose-600 border-none shadow-xl hover:shadow-2xl transition-all">
+                  <Card.Body>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-rose-50 mb-1">Vencidos</p>
+                        <p className="text-4xl font-bold text-white">{stats.expired}</p>
+                      </div>
+                      <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <TrendingDownIcon className="w-8 h-8 text-white" />
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Animated>
             </div>
 
             {/* Gráficos */}
@@ -337,7 +396,7 @@ export default function Home() {
             </Animated>
 
             {/* Cards de Resumo */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               <Animated animation="slide-up" delay={0}>
                 <Card>
                   <Card.Body>
@@ -382,6 +441,40 @@ export default function Home() {
                       </div>
                       <div className="p-3 bg-info/10 rounded-lg">
                         <DocumentReportIcon className="w-8 h-8 text-info" aria-hidden={true} />
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Animated>
+              <Animated animation="slide-up" delay={300}>
+                <Card>
+                  <Card.Body>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Vencendo (20 dias)</p>
+                        <p className="text-2xl font-bold text-warning">
+                          {stats.expiringSoon}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-warning/10 rounded-lg">
+                        <DocumentReportIcon className="w-8 h-8 text-warning" aria-hidden={true} />
+                      </div>
+                    </div>
+                  </Card.Body>
+                </Card>
+              </Animated>
+              <Animated animation="slide-up" delay={400}>
+                <Card>
+                  <Card.Body>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Vencidos</p>
+                        <p className="text-2xl font-bold text-error">
+                          {stats.expired}
+                        </p>
+                      </div>
+                      <div className="p-3 bg-error/10 rounded-lg">
+                        <TrendingDownIcon className="w-8 h-8 text-error" aria-hidden={true} />
                       </div>
                     </div>
                   </Card.Body>

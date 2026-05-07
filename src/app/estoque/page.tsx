@@ -15,6 +15,7 @@ interface ProductFormData {
   description: string;
   salePrice: string;
   costPrice: string;
+  expiryDate?: string;
   currentQuantity: number;
   lowStockThreshold: number;
   observation?: string;
@@ -51,6 +52,7 @@ interface BatchFormData {
   quantityReceived: number;
   quantityRemaining: number;
   purchaseDate: string;
+  expiryDate?: string | null;
   observation?: string;
   unitsPerPackage?: number;
   packageQuantityReceived?: number;
@@ -66,6 +68,7 @@ interface Product {
   description: string | null;
   salePrice: string;
   costPrice: string;
+  expiryDate?: string | null;
   currentQuantity: number;
   totalEntry: number;
   totalExit: number;
@@ -85,6 +88,7 @@ interface Product {
   batches: Array<{
     id: string;
     purchaseDate: string;
+    expiryDate?: string | null;
     costPrice: string;
     sellingPrice: string;
     quantityReceived: number;
@@ -158,6 +162,56 @@ interface ImportResult {
   };
 }
 
+const EXPIRY_SOON_DAYS = 20;
+
+const parseIsoDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const getExpiryStatus = (expiryDate?: string | null) => {
+  const date = parseIsoDate(expiryDate);
+  if (!date) return null;
+  const today = new Date();
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffMs = date.getTime() - startOfToday.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { status: 'expired' as const, diffDays };
+  }
+  if (diffDays <= EXPIRY_SOON_DAYS) {
+    return { status: 'soon' as const, diffDays };
+  }
+  return { status: 'ok' as const, diffDays };
+};
+
+const getProductExpirySummary = (batches: Product['batches']) => {
+  const validBatches = batches
+    .filter((batch) => batch.quantityRemaining > 0)
+    .map((batch) => ({
+      ...batch,
+      parsedExpiry: parseIsoDate(batch.expiryDate),
+    }))
+    .filter((batch) => batch.parsedExpiry);
+
+  if (validBatches.length === 0) {
+    return null;
+  }
+
+  validBatches.sort((a, b) => (a.parsedExpiry!.getTime() - b.parsedExpiry!.getTime()));
+  const nearest = validBatches[0];
+  const status = getExpiryStatus(nearest.expiryDate);
+  if (!status) return null;
+
+  return {
+    status: status.status,
+    diffDays: status.diffDays,
+    expiryDate: nearest.expiryDate,
+  };
+};
+
 export default function Estoque() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -211,6 +265,7 @@ export default function Estoque() {
     description: '',
     salePrice: '',
     costPrice: '',
+    expiryDate: '',
     currentQuantity: 0,
     lowStockThreshold: 5,
     sku: '',
@@ -326,14 +381,15 @@ export default function Estoque() {
   };
 
   const handleCostPriceChange = (value: string) => {
-    setFormData({ ...formData, costPrice: value });
-    // Se tiver margem definida, recalcula o preço de venda
+    // Se tiver margem definida, recalcula o preço de venda; caso contrario usa o custo.
     if (markupPercentage && parseFloat(markupPercentage) > 0) {
       const newSalePrice = calculateSalePriceFromMarkup(value, markupPercentage);
       if (newSalePrice) {
         setFormData(prev => ({ ...prev, costPrice: value, salePrice: newSalePrice }));
+        return;
       }
     }
+    setFormData({ ...formData, costPrice: value, salePrice: value });
   };
 
   const handleSalePriceChange = (value: string) => {
@@ -556,16 +612,23 @@ export default function Estoque() {
     }
   };
 
+  const buildProductPayload = () => ({
+    ...formData,
+    salePrice: formData.salePrice || formData.costPrice || '0',
+    isPerishable: !!formData.expiryDate,
+  });
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = buildProductPayload();
       // Primeiro, verificar se o produto já existe
       const checkResponse = await fetch('/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ ...formData, checkOnly: true }),
+        body: JSON.stringify({ ...payload, checkOnly: true }),
       });
 
       const checkResult = await checkResponse.json();
@@ -587,12 +650,13 @@ export default function Estoque() {
 
   const submitProduct = async () => {
     try {
+      const payload = buildProductPayload();
       const response = await fetch('/api/products', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -643,6 +707,7 @@ export default function Estoque() {
       description: product.description || '',
       salePrice: product.salePrice,
       costPrice: product.costPrice,
+      expiryDate: product.expiryDate || '',
       currentQuantity: product.currentQuantity,
       lowStockThreshold: product.lowStockThreshold,
       // Campos para unidades
@@ -740,6 +805,7 @@ export default function Estoque() {
       description: '',
       salePrice: '',
       costPrice: '',
+      expiryDate: '',
       currentQuantity: 0,
       lowStockThreshold: 5,
       observation: '',
@@ -775,6 +841,7 @@ export default function Estoque() {
       quantityReceived: batch.quantityReceived,
       quantityRemaining: batch.quantityRemaining,
       purchaseDate: batch.purchaseDate,
+      expiryDate: batch.expiryDate || '',
       observation: batch.observation || '',
     });
     setShowBatchModal(true);
@@ -785,12 +852,16 @@ export default function Estoque() {
     if (!editingBatch) return;
 
     try {
+      const payload = {
+        ...editingBatch,
+        expiryDate: editingBatch.expiryDate || null,
+      };
       const response = await fetch('/api/batches', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(editingBatch),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -1147,6 +1218,11 @@ export default function Estoque() {
   const toggleProductDetails = (productId: string) => {
     setExpandedProduct(expandedProduct === productId ? null : productId);
   };
+
+  const expiringSoonCount = products.filter((product) => {
+    const summary = getProductExpirySummary(product.batches);
+    return summary?.status === 'soon';
+  }).length;
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors">
@@ -1516,6 +1592,27 @@ export default function Estoque() {
                                       </span>
                                     )}
                                   </h3>
+                                  {(() => {
+                                    const expirySummary = getProductExpirySummary(product.batches);
+                                    if (!expirySummary) return null;
+                                    const statusStyles = expirySummary.status === 'expired'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200'
+                                      : expirySummary.status === 'soon'
+                                        ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
+                                        : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200';
+                                    const statusLabel = expirySummary.status === 'expired'
+                                      ? 'Vencido'
+                                      : expirySummary.status === 'soon'
+                                        ? `Vence em ${expirySummary.diffDays} dia(s)`
+                                        : 'Validade OK';
+                                    return (
+                                      <div className="mt-2">
+                                        <span className={`inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-xs font-semibold ${statusStyles}`}>
+                                          ⏰ {statusLabel}
+                                        </span>
+                                      </div>
+                                    );
+                                  })()}
                                   <p className="text-sm text-muted-foreground mt-1">
                                     Código: {product.internalCode}
                                     {product.barcode && ` | Barras: ${product.barcode}`}
@@ -1556,7 +1653,8 @@ export default function Estoque() {
                                     <div key={batch.id} className="bg-level-2 p-3 rounded-md hover:bg-level-3 transition-colors">
                                       <div className="flex items-center justify-between">
                                         <div className="text-sm text-muted-foreground">
-                                          <span className="font-medium">Data:</span> {batch.purchaseDate} | 
+                                            <span className="font-medium">Data:</span> {batch.purchaseDate} | 
+                                            <span className="font-medium"> Validade:</span> {batch.expiryDate || 'Sem validade'} |
                                           <span className="font-medium"> Custo:</span> R$ {parseFloat(batch.costPrice).toFixed(2)} | 
                                           <span className="font-medium"> Venda:</span> R$ {parseFloat(batch.sellingPrice).toFixed(2)} | 
                                           <span className="font-medium"> Qtd Recebida:</span> {batch.quantityReceived} | 
@@ -1693,7 +1791,7 @@ export default function Estoque() {
 
           {/* Estatísticas */}
           {!loading && (
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-card border border-border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
@@ -1758,6 +1856,24 @@ export default function Estoque() {
                       <dt className="text-sm font-medium text-muted-foreground truncate">Esgotados</dt>
                       <dd className="text-2xl font-bold text-foreground">
                         {products.filter(p => p.currentQuantity === 0).length}
+                      </dd>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="w-8 h-8 border-2 border-amber-500 rounded flex items-center justify-center">
+                      <div className="w-3 h-3 bg-amber-500 rounded-full"></div>
+                    </div>
+                  </div>
+                  <div className="ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-sm font-medium text-muted-foreground truncate">Perto do Vencimento (20 dias)</dt>
+                      <dd className="text-2xl font-bold text-foreground">
+                        {expiringSoonCount}
                       </dd>
                     </dl>
                   </div>
@@ -2140,6 +2256,15 @@ export default function Estoque() {
                     />
                   </div>
                   <div>
+                    <label className="block text-sm font-medium text-card-foreground">Data de Validade</label>
+                    <input
+                      type="date"
+                      value={editingBatch.expiryDate || ''}
+                      onChange={(e) => setEditingBatch({ ...editingBatch, expiryDate: e.target.value })}
+                      className="mt-1 block w-full border border-input rounded-md shadow-sm bg-background text-card-foreground focus:ring-2 focus:ring-ring focus:border-ring"
+                    />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-card-foreground">Preço de Custo</label>
                     <input
                       type="number"
@@ -2435,39 +2560,14 @@ export default function Estoque() {
                     required
                   />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-foreground mb-2">Preço de Venda</label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs text-muted-foreground mb-1">Valor (R$)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={formData.salePrice}
-                        onChange={(e) => handleSalePriceChange(e.target.value)}
-                        className="block w-full bg-background border border-input rounded-md shadow-sm px-3 py-2 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
-                        placeholder="0.00"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-muted-foreground mb-1">Margem (%)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={markupPercentage}
-                          onChange={(e) => handleMarkupChange(e.target.value)}
-                          className="block w-full bg-background border border-input rounded-md shadow-sm px-3 py-2 pr-8 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
-                          placeholder="0.00"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Altere o valor ou a margem - o outro será calculado automaticamente
-                  </p>
+                <div>
+                  <label className="block text-sm font-medium text-foreground">Data de Validade</label>
+                  <input
+                    type="date"
+                    value={formData.expiryDate || ''}
+                    onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                    className="mt-1 block w-full bg-background border border-input rounded-md shadow-sm px-3 py-2 text-foreground placeholder:text-muted-foreground focus:ring-2 focus:ring-ring focus:border-transparent"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground">Quantidade Inicial</label>

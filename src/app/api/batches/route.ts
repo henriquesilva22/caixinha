@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { id, costPrice, sellingPrice, quantityReceived, quantityRemaining, purchaseDate, observation } = body;
+    const { id, costPrice, sellingPrice, quantityReceived, quantityRemaining, purchaseDate, expiryDate, observation } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID do lote é obrigatório' }, { status: 400 });
@@ -34,6 +34,7 @@ export async function PUT(request: NextRequest) {
     if (quantityReceived !== undefined) updates.quantityReceived = quantityReceived;
     if (quantityRemaining !== undefined) updates.quantityRemaining = quantityRemaining;
     if (purchaseDate !== undefined) updates.purchaseDate = purchaseDate; // Já é string YYYY-MM-DD
+    if (expiryDate !== undefined) updates.expiryDate = expiryDate;
     if (observation !== undefined) updates.observation = observation;
 
     await db.update(productBatches).set(updates).where(eq(productBatches.id, id));
