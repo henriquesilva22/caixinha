@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../lib/db';
-import { products, productBatches } from '../../../lib/schema';
+import { products, productBatches, productCategories } from '../../../lib/schema';
 import { eq, sql } from 'drizzle-orm';
 
 // GET: Listar todos os produtos com lotes
@@ -11,16 +11,207 @@ export async function GET(request: NextRequest) {
     const idFilter = params.get('id');
     const nameFilter = params.get('name');
 
-    let productList = [];
+    let productList: any[] = [];
     if (barcodeFilter) {
-      productList = await db.select().from(products).where(eq(products.barcode, barcodeFilter));
+      productList = await db
+        .select({
+          id: products.id,
+          codigoInterno: products.codigoInterno,
+          barcode: products.barcode,
+          xmlCode: products.xmlCode,
+          name: products.name,
+          description: products.description,
+          precoVenda: products.precoVenda,
+          precoCusto: products.precoCusto,
+          qtdEntradaTotal: products.qtdEntradaTotal,
+          qtdSaidaTotal: products.qtdSaidaTotal,
+          qtdAtual: products.qtdAtual,
+          dataUltimaCompra: products.dataUltimaCompra,
+          ncm: products.ncm,
+          cfopEntrada: products.cfopEntrada,
+          cst: products.cst,
+          fornecedorId: products.fornecedorId,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          estoqueBaixoLimite: products.estoqueBaixoLimite,
+          lowStockThreshold: products.lowStockThreshold,
+          sku: products.sku,
+          weight: products.weight,
+          length: products.length,
+          width: products.width,
+          height: products.height,
+          categoryId: products.categoryId,
+          brandName: products.brandName,
+          manufacturer: products.manufacturer,
+          shortDescription: products.shortDescription,
+          metaTitle: products.metaTitle,
+          metaDescription: products.metaDescription,
+          tags: products.tags,
+          warrantyMonths: products.warrantyMonths,
+          productType: products.productType,
+          unitType: products.unitType,
+          packageQuantity: products.packageQuantity,
+          unitsPerPackage: products.unitsPerPackage,
+          unitName: products.unitName,
+          packageName: products.packageName,
+          sellByUnit: products.sellByUnit,
+          unitPrice: products.unitPrice,
+          qtdUnitsAvailable: products.qtdUnitsAvailable,
+          categoryName: productCategories.name,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(eq(products.barcode, barcodeFilter));
     } else if (idFilter) {
-      productList = await db.select().from(products).where(eq(products.id, idFilter));
+      productList = await db
+        .select({
+          id: products.id,
+          codigoInterno: products.codigoInterno,
+          barcode: products.barcode,
+          xmlCode: products.xmlCode,
+          name: products.name,
+          description: products.description,
+          precoVenda: products.precoVenda,
+          precoCusto: products.precoCusto,
+          qtdEntradaTotal: products.qtdEntradaTotal,
+          qtdSaidaTotal: products.qtdSaidaTotal,
+          qtdAtual: products.qtdAtual,
+          dataUltimaCompra: products.dataUltimaCompra,
+          ncm: products.ncm,
+          cfopEntrada: products.cfopEntrada,
+          cst: products.cst,
+          fornecedorId: products.fornecedorId,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          estoqueBaixoLimite: products.estoqueBaixoLimite,
+          lowStockThreshold: products.lowStockThreshold,
+          sku: products.sku,
+          weight: products.weight,
+          length: products.length,
+          width: products.width,
+          height: products.height,
+          categoryId: products.categoryId,
+          brandName: products.brandName,
+          manufacturer: products.manufacturer,
+          shortDescription: products.shortDescription,
+          metaTitle: products.metaTitle,
+          metaDescription: products.metaDescription,
+          tags: products.tags,
+          warrantyMonths: products.warrantyMonths,
+          productType: products.productType,
+          unitType: products.unitType,
+          packageQuantity: products.packageQuantity,
+          unitsPerPackage: products.unitsPerPackage,
+          unitName: products.unitName,
+          packageName: products.packageName,
+          sellByUnit: products.sellByUnit,
+          unitPrice: products.unitPrice,
+          qtdUnitsAvailable: products.qtdUnitsAvailable,
+          categoryName: productCategories.name,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(eq(products.id, idFilter));
     } else if (nameFilter) {
       // fallback simple name search
-      productList = await db.select().from(products).where(sql`${products.name} LIKE ${"%" + nameFilter + "%"}`);
+      productList = await db
+        .select({
+          id: products.id,
+          codigoInterno: products.codigoInterno,
+          barcode: products.barcode,
+          xmlCode: products.xmlCode,
+          name: products.name,
+          description: products.description,
+          precoVenda: products.precoVenda,
+          precoCusto: products.precoCusto,
+          qtdEntradaTotal: products.qtdEntradaTotal,
+          qtdSaidaTotal: products.qtdSaidaTotal,
+          qtdAtual: products.qtdAtual,
+          dataUltimaCompra: products.dataUltimaCompra,
+          ncm: products.ncm,
+          cfopEntrada: products.cfopEntrada,
+          cst: products.cst,
+          fornecedorId: products.fornecedorId,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          estoqueBaixoLimite: products.estoqueBaixoLimite,
+          lowStockThreshold: products.lowStockThreshold,
+          sku: products.sku,
+          weight: products.weight,
+          length: products.length,
+          width: products.width,
+          height: products.height,
+          categoryId: products.categoryId,
+          brandName: products.brandName,
+          manufacturer: products.manufacturer,
+          shortDescription: products.shortDescription,
+          metaTitle: products.metaTitle,
+          metaDescription: products.metaDescription,
+          tags: products.tags,
+          warrantyMonths: products.warrantyMonths,
+          productType: products.productType,
+          unitType: products.unitType,
+          packageQuantity: products.packageQuantity,
+          unitsPerPackage: products.unitsPerPackage,
+          unitName: products.unitName,
+          packageName: products.packageName,
+          sellByUnit: products.sellByUnit,
+          unitPrice: products.unitPrice,
+          qtdUnitsAvailable: products.qtdUnitsAvailable,
+          categoryName: productCategories.name,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id))
+        .where(sql`${products.name} LIKE ${"%" + nameFilter + "%"}`);
     } else {
-      productList = await db.select().from(products);
+      productList = await db
+        .select({
+          id: products.id,
+          codigoInterno: products.codigoInterno,
+          barcode: products.barcode,
+          xmlCode: products.xmlCode,
+          name: products.name,
+          description: products.description,
+          precoVenda: products.precoVenda,
+          precoCusto: products.precoCusto,
+          qtdEntradaTotal: products.qtdEntradaTotal,
+          qtdSaidaTotal: products.qtdSaidaTotal,
+          qtdAtual: products.qtdAtual,
+          dataUltimaCompra: products.dataUltimaCompra,
+          ncm: products.ncm,
+          cfopEntrada: products.cfopEntrada,
+          cst: products.cst,
+          fornecedorId: products.fornecedorId,
+          createdAt: products.createdAt,
+          updatedAt: products.updatedAt,
+          estoqueBaixoLimite: products.estoqueBaixoLimite,
+          lowStockThreshold: products.lowStockThreshold,
+          sku: products.sku,
+          weight: products.weight,
+          length: products.length,
+          width: products.width,
+          height: products.height,
+          categoryId: products.categoryId,
+          brandName: products.brandName,
+          manufacturer: products.manufacturer,
+          shortDescription: products.shortDescription,
+          metaTitle: products.metaTitle,
+          metaDescription: products.metaDescription,
+          tags: products.tags,
+          warrantyMonths: products.warrantyMonths,
+          productType: products.productType,
+          unitType: products.unitType,
+          packageQuantity: products.packageQuantity,
+          unitsPerPackage: products.unitsPerPackage,
+          unitName: products.unitName,
+          packageName: products.packageName,
+          sellByUnit: products.sellByUnit,
+          unitPrice: products.unitPrice,
+          qtdUnitsAvailable: products.qtdUnitsAvailable,
+          categoryName: productCategories.name,
+        })
+        .from(products)
+        .leftJoin(productCategories, eq(products.categoryId, productCategories.id));
     }
     const productsWithBatches = await Promise.all(
       productList.map(async (p) => {
